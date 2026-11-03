@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>沖縄トリップマップ 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<style>
+:root{
+  --bg:#fff6e6;
+  --ink:#24323f;
+  --sub:#6a7783;
+  --line:#e9dcc4;
+  --white:#ffffff;
+  --coral:#ff6b57;
+  --orange:#ff9f1c;
+  --yellow:#ffd23f;
+  --pink:#ff4f8b;
+  --sea:#19a7ce;
+  --blue:#1e6fd9;
+  --green:#2bb673;
+  --purple:#8e6cf0;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  color:var(--ink);
+  font-family:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(255,159,28,.18) 1.5px, transparent 0) 0 0/22px 22px,
+    var(--bg);
+  display:flex;flex-direction:column;height:100dvh;overflow:hidden;
+}
+
+/* ---------- ヘッダー ---------- */
+header{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:10px 18px;background:var(--white);
+  border-bottom:4px solid var(--yellow);
+  box-shadow:0 4px 0 rgba(255,210,63,.35);
+  position:relative;z-index:5;
+}
+.title{display:flex;align-items:center;gap:10px}
+.logo{width:42px;height:42px;border-radius:50%;background:var(--sea);display:grid;place-items:center;box-shadow:0 3px 0 #10789a}
+.logo svg{width:26px;height:26px}
+.title h1{margin:0;font-weight:900;font-size:clamp(19px,2.4vw,26px);letter-spacing:.04em;line-height:1.1}
+.title h1 .a{color:var(--coral)} .title h1 .b{color:var(--sea)}
+.title p{margin:2px 0 0;font-size:12px;font-weight:700;color:var(--sub)}
+.title p a{color:var(--sea)}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{
+  font:inherit;font-weight:900;font-size:14px;cursor:pointer;
+  padding:9px 16px;border-radius:999px;border:2px solid var(--ink);
+  background:var(--white);color:var(--ink);
+  box-shadow:0 3px 0 var(--ink);transition:transform .08s, box-shadow .08s;
+}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 0 var(--ink)}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn.primary{background:var(--coral);color:#fff}
+.btn.ghost{border-color:var(--sub);color:var(--sub);box-shadow:0 3px 0 var(--sub)}
+.speed{display:flex;border:2px solid var(--ink);border-radius:999px;overflow:hidden;box-shadow:0 3px 0 var(--ink)}
+.speed button{font:inherit;font-size:13px;font-weight:900;padding:7px 11px;cursor:pointer;background:var(--white);color:var(--ink);border:0;border-right:2px solid var(--ink)}
+.speed button:last-child{border-right:0}
+.speed button[aria-pressed="true"]{background:var(--yellow)}
+
+/* ---------- メイン ---------- */
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 380px}
+.map-frame{
+  position:relative;margin:16px;min-height:0;border-radius:22px;overflow:hidden;
+  border:6px solid var(--white);
+  box-shadow:0 0 0 3px var(--ink), 0 8px 0 3px rgba(36,50,63,.18);
+}
+#map{position:absolute;inset:0;background:#aad3df}
+#map .leaflet-tile-pane{filter:saturate(1.15) contrast(.95) brightness(1.03)}
+.leaflet-container{font-family:inherit}
+.leaflet-control-attribution{font-size:10px;border-radius:8px 0 0 0}
+.leaflet-bar{border:2px solid var(--ink)!important;border-radius:12px!important;overflow:hidden}
+.leaflet-bar a{font-weight:900;color:var(--ink)}
+
+.north{
+  position:absolute;top:12px;right:12px;z-index:650;pointer-events:none;
+  width:44px;height:44px;border-radius:50%;background:var(--white);border:2px solid var(--ink);
+  display:grid;place-items:center;font-weight:900;font-size:13px;box-shadow:0 3px 0 var(--ink);
+}
+.north::before{content:"";position:absolute;top:5px;border:6px solid transparent;border-bottom:9px solid var(--coral);border-top:0}
+.north span{margin-top:10px}
+
+/* キャプション */
+.caption{
+  position:absolute;left:50%;bottom:20px;transform:translate(-50%,16px) scale(.96);z-index:670;
+  max-width:88%;pointer-events:none;display:flex;align-items:center;gap:10px;
+  background:var(--white);border:3px solid var(--ink);border-radius:18px;padding:8px 18px 8px 10px;
+  box-shadow:0 5px 0 var(--ink);opacity:0;transition:opacity .35s, transform .45s cubic-bezier(.3,1.6,.5,1);
+}
+.caption.show{opacity:1;transform:translate(-50%,0) scale(1)}
+.caption .cap-icons{display:flex;gap:4px;flex:none}
+.caption .cap-day{font-size:12px;font-weight:900;color:var(--sub)}
+.caption .cap-title{font-size:clamp(15px,1.9vw,20px);font-weight:900;line-height:1.3}
+
+.legend{
+  position:absolute;right:12px;bottom:28px;z-index:650;
+  background:var(--white);border:2px solid var(--ink);border-radius:12px;
+  font-size:11px;font-weight:700;line-height:1.8;padding:6px 10px;
+}
+.legend i{display:inline-block;width:24px;height:0;vertical-align:middle;margin-right:6px}
+.legend .l-done{border-top:5px solid var(--coral);border-radius:3px}
+.legend .l-live{border-top:4px dashed var(--coral)}
+.legend svg{width:12px;height:12px;vertical-align:-1px;margin:0 6px 0 6px}
+
+/* 地点マーカー */
+.stop-dot{width:14px;height:14px;border-radius:50%;background:var(--white);border:3px solid var(--ink);transition:background .3s, transform .3s}
+.stop-dot.visited{background:var(--coral)}
+.stop-dot.ping{animation:pop .5s cubic-bezier(.3,1.8,.5,1)}
+@keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.6)}100%{transform:scale(1)}}
+.leaflet-tooltip.stop-label{
+  background:var(--white);color:var(--ink);border:2px solid var(--ink);border-radius:999px;
+  padding:1px 9px;font-weight:900;font-size:12px;box-shadow:0 2px 0 var(--ink);white-space:nowrap;
+}
+.leaflet-tooltip.stop-label::before{display:none}
+.zl-low .lvl-2,.zl-low .lvl-3,.zl-mid .lvl-3{display:none}
+.leaflet-tooltip.wish-label{border-radius:10px;font-weight:700;font-size:12px}
+.wish svg{width:20px;height:20px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.35));opacity:.8}
+
+/* フェス会場 */
+.fest{position:relative;width:46px;height:46px;display:grid;place-items:center}
+.fest::before,.fest::after{content:"";position:absolute;inset:3px;border-radius:50%;background:rgba(255,79,139,.45);animation:pulse 1.8s ease-out infinite}
+.fest::after{animation-delay:.9s}
+.fest .badge{width:36px;height:36px;animation:bob 1.8s ease-in-out infinite}
+.fest.active .badge{width:42px;height:42px}
+.fest.active::before,.fest.active::after{animation-duration:1.1s;background:rgba(255,79,139,.6)}
+@keyframes pulse{0%{transform:scale(.7);opacity:1}100%{transform:scale(2.1);opacity:0}}
+@keyframes bob{50%{transform:scale(1.1) rotate(-6deg)}}
+
+/* アイコンのバッジ（色は --c） */
+.badge{
+  width:40px;height:40px;border-radius:50%;background:var(--c);
+  border:3px solid var(--white);box-shadow:0 0 0 2px var(--ink), 0 3px 0 2px var(--ink);
+  display:grid;place-items:center;position:relative;
+}
+.badge svg{width:62%;height:62%;overflow:visible}
+.badge.sm{width:24px;height:24px;border-width:2px;box-shadow:0 0 0 1.5px var(--ink)}
+
+/* 乗り物 */
+.vehicle{pointer-events:none}
+.veh{width:48px;height:48px;display:grid;place-items:center}
+.veh .badge{width:44px;height:44px;animation:wiggle .5s ease-in-out infinite alternate}
+.veh.plane .badge{animation:none}
+.veh-inner{display:grid;place-items:center;width:100%;height:100%}
+@keyframes wiggle{from{transform:translateY(-1.5px) rotate(-4deg)}to{transform:translateY(1.5px) rotate(4deg)}}
+
+.live-line{animation:march .7s linear infinite}
+@keyframes march{to{stroke-dashoffset:-20}}
+
+/* フォールバック・注意 */
+.fallback{position:absolute;inset:0;z-index:700;display:none;place-items:center;text-align:center;background:var(--bg);padding:24px;font-size:18px;font-weight:900;line-height:1.8}
+.fallback.show{display:grid}
+.fallback small{font-weight:500}
+.tile-warn{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:680;display:none;background:var(--white);border:2px solid var(--ink);border-radius:999px;padding:5px 14px;font-size:13px;font-weight:700}
+.tile-warn.show{display:block}
+
+/* エンドカード */
+.endcard{position:absolute;inset:0;z-index:690;display:none;place-items:center;background:rgba(36,50,63,.35);overflow:hidden}
+.endcard.show{display:grid}
+.end-inner{
+  position:relative;text-align:center;padding:24px 34px;max-width:90%;
+  background:var(--white);border:3px solid var(--ink);border-radius:24px;box-shadow:0 8px 0 var(--ink);
+  animation:boing .7s cubic-bezier(.3,1.7,.5,1);
+}
+@keyframes boing{from{transform:scale(.4);opacity:0}}
+.end-kicker{margin:0;font-size:13px;font-weight:900;letter-spacing:.3em;color:var(--sea)}
+.end-inner h2{font-size:clamp(30px,4.5vw,46px);font-weight:900;margin:4px 0 6px;color:var(--coral)}
+.end-inner p{margin:4px 0;font-weight:700}
+.end-inner .btns{margin-top:16px;display:flex;gap:8px;justify-content:center}
+.confetti{position:absolute;top:-20px;width:10px;height:14px;border-radius:3px;animation:fall linear forwards;pointer-events:none}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+
+/* ---------- 時系列カード ---------- */
+aside{min-height:0;overflow-y:auto;padding:16px 16px 40px 2px;scroll-behavior:smooth}
+.timeline{list-style:none;margin:0;padding:0 0 0 10px}
+.day-sep{display:flex;align-items:center;gap:8px;margin:18px 0 8px;font-weight:900;font-size:16px}
+.day-sep:first-child{margin-top:0}
+.day-sep .pill{background:var(--c);color:#fff;border-radius:999px;padding:2px 12px;border:2px solid var(--ink)}
+.day-sep small{font-size:13px;color:var(--sub)}
+.card{
+  position:relative;margin:0 0 10px;padding:10px 12px 10px 14px;
+  background:var(--white);border:2px solid var(--ink);border-radius:16px;
+  box-shadow:0 3px 0 var(--ink);
+  transition:opacity .35s, transform .4s cubic-bezier(.3,1.6,.5,1), box-shadow .3s, background .3s;
+}
+.card::before{content:"";position:absolute;left:-2px;top:12px;bottom:12px;width:6px;border-radius:0 6px 6px 0;background:var(--c)}
+.card.active{transform:scale(1.03);background:#fffbe9;box-shadow:0 0 0 3px var(--c), 0 6px 0 var(--ink)}
+.card.done{opacity:.5}
+.card.done::after{
+  content:"✓";position:absolute;right:10px;top:9px;width:24px;height:24px;border-radius:50%;
+  background:var(--green);color:#fff;display:grid;place-items:center;font-weight:900;font-size:14px;
+}
+.card-head{display:flex;gap:8px;align-items:center;font-size:12px;font-weight:900;color:var(--sub)}
+.card-head .time{margin-left:auto;color:var(--ink);font-variant-numeric:tabular-nums;padding-right:30px}
+.card h3{margin:6px 0 3px;font-size:15.5px;line-height:1.4;display:flex;align-items:center;gap:8px;font-weight:900}
+.card h3 .icons{display:flex;gap:3px;flex:none}
+.card .route{margin:0;font-size:12.5px;color:var(--sea);font-weight:900}
+.card .note{margin:3px 0 0;font-size:13px;line-height:1.6;font-weight:500}
+.card .warn{margin:5px 0 0;font-size:12px;font-weight:900;color:#d6402c;background:#fff0ec;border-radius:8px;padding:3px 8px}
+.motion-note{font-size:12px;color:var(--sub);margin:0 0 10px 10px;display:none}
+.motion-note.show{display:block}
+
+/* ---------- スマホ幅 ---------- */
+@media (max-width:780px){
+  header{padding:8px 10px;gap:6px}
+  .logo{width:32px;height:32px}.logo svg{width:20px;height:20px}
+  .title h1{font-size:18px}
+  .title p{display:none}
+  .controls{gap:6px;flex-wrap:nowrap}
+  .btn{padding:6px 11px;font-size:12.5px}
+  .btn .jp{display:none}
+  .speed button{padding:5px 8px;font-size:12px}
+  main{display:flex;flex-direction:column}
+  .map-frame{flex:0 0 54%;margin:10px 10px 8px;border-radius:16px;border-width:4px}
+  aside{flex:1;padding:8px 12px 30px 4px}
+  .card.active{transform:none}
+  .legend{display:none}
+  .caption{bottom:12px;padding:6px 12px 6px 8px}
+  .caption .cap-day{font-size:10.5px}
+  .caption .cap-title{font-size:14px}
+  .north{width:36px;height:36px;font-size:11px}
+}
+@media (prefers-reduced-motion: reduce){
+  .live-line,.fest::before,.fest::after,.fest .badge,.veh .badge,.stop-dot.ping,.confetti{animation:none!important}
+  .confetti{display:none}
+  .card,.caption,.end-inner{transition:none;animation:none}
+  aside{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="title">
+    <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2c.8 0 1.3.9 1.3 1.8V9l7.7 4.6v2l-7.7-2.4v4.6l2.3 1.8V21L12 20l-3.6 1v-1.4l2.3-1.8v-4.6L3 15.6v-2L10.7 9V3.8C10.7 2.9 11.2 2 12 2z" fill="#fff" transform="rotate(45 12 12)"/></svg></div>
+    <div>
+      <h1><span class="a">沖縄</span> <span class="b">トリップマップ</span></h1>
+      <p>2026.11.5 – 11.9 ・ MONGOL800 フェスへの旅 ・ <a href="index.html">冒険版 →</a></p>
+    </div>
+  </div>
+  <div class="controls">
+    <button id="btnStart" class="btn primary">▶ <span class="jp">旅を開始（</span>START<span class="jp">）</span></button>
+    <button id="btnReset" class="btn">↺ <span class="jp">リセット（</span>RESET<span class="jp">）</span></button>
+    <div class="speed" role="group" aria-label="再生速度">
+      <button data-speed="1" aria-pressed="true">1x</button>
+      <button data-speed="2" aria-pressed="false">2x</button>
+      <button data-speed="4" aria-pressed="false">4x</button>
+    </div>
+    <button id="btnSkip" class="btn ghost" title="アニメーションを省いて全ルートを表示" aria-label="スキップ">⏭<span class="jp"> スキップ</span></button>
+  </div>
+</header>
+
+<main>
+  <div class="map-frame">
+    <div id="map" aria-label="旅のルート地図"></div>
+    <div class="north" aria-hidden="true"><span>N</span></div>
+    <div class="legend" id="legend">
+      <div><i class="l-done"></i>通った道</div>
+      <div><i class="l-live"></i>いま移動中</div>
+      <div id="legendWish">行きたい場所（今回は行かない）</div>
+    </div>
+    <div class="caption" id="caption"><div class="cap-icons"></div><div><div class="cap-day"></div><div class="cap-title"></div></div></div>
+    <div class="tile-warn" id="tileWarn">地図タイルを読み込めません（ルートのみ表示中）</div>
+    <div class="fallback" id="fallback"><div>地図を読み込めません<br><small>インターネット接続を確認して、ページを再読み込みしてください。</small></div></div>
+    <div class="endcard" id="endcard" role="dialog" aria-label="旅の終わり">
+      <div class="end-inner">
+        <p class="end-kicker">GOAL!</p>
+        <h2>おつかれさま！</h2>
+        <p id="endStats"></p>
+        <p>MONGOL800 フェス 2日間、完走。</p>
+        <div class="btns">
+          <button class="btn primary" id="btnAgain">↻ もう一度</button>
+          <button class="btn" id="btnClose">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <aside id="panel">
+    <p class="motion-note" id="motionNote">※ 動きを減らす設定のため、各区間を一度に表示します。</p>
+    <ol class="timeline" id="timeline"></ol>
+  </aside>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+(() => {
+'use strict';
+
+/* =====================================================================
+   編集用データ（index.html と同じ内容。座標や文言を直すときは両方直す）
+   verified: 'gmap' = Googleマップで確定 / 'osm' = Nominatimで確認
+             'osm-area' = 地区レベルまで確認 / 'approx' = 未検証
+   lvl: 地図ラベルを出すズーム段階（1=常に / 2=本島が見える程度 / 3=那覇市内まで寄ったとき）
+   ===================================================================== */
+const STOPS = {
+  nagoya:       { name:'中部国際空港（名古屋）', lat:34.8599, lng:136.8162, verified:'osm',      lvl:1, dir:'right' },
+  naha_ap:      { name:'那覇空港',               lat:26.1967, lng:127.6490, verified:'osm',      lvl:1, dir:'left' },
+  kencho:       { name:'県庁前駅',               lat:26.2145, lng:127.6796, verified:'osm',      lvl:3, dir:'bottom' },
+  manzamo:      { name:'万座毛',                 lat:26.5054, lng:127.8504, verified:'osm',      lvl:2, dir:'left' },
+  dopican:      { name:'DO PI-CAN（本部町健堅）', lat:26.6460, lng:127.8835, verified:'osm-area', lvl:2, dir:'bottom' },
+  toguchi:      { name:'渡久地港',               lat:26.6592, lng:127.8894, verified:'gmap',     lvl:2, dir:'right' },
+  minna:        { name:'水納島',                 lat:26.6503, lng:127.8182, verified:'osm',      lvl:2, dir:'left' },
+  churaterrace: { name:'美らテラス',             lat:26.6780, lng:128.0120, verified:'gmap',     lvl:2, dir:'bottom' },
+  kouri_bridge: { name:'古宇利大橋',             lat:26.6860, lng:128.0169, verified:'osm',      lvl:3, dir:'left' },
+  kouri_island: { name:'古宇利島',               lat:26.7043, lng:128.0181, verified:'osm',      lvl:2, dir:'top' },
+  untenbaru:    { name:'運天原バス停',           lat:26.6690, lng:128.0018, verified:'osm-area', lvl:3, dir:'left' },
+  nago_bt:      { name:'名護バスターミナル',     lat:26.5965, lng:127.9655, verified:'osm',      lvl:2, dir:'right' },
+  american:     { name:'アメリカンビレッジ',     lat:26.3159, lng:127.7540, verified:'gmap',     lvl:2, dir:'left' },
+  kaifu:        { name:'ゲストハウス海風',       lat:26.2146, lng:127.6781, verified:'gmap',     lvl:3, dir:'top' },
+  omoro:        { name:'おもろまち駅',           lat:26.2228, lng:127.6984, verified:'osm-area', lvl:3, dir:'right' },
+  festival:     { name:'宜野湾港マリーナ（フェス会場）', lat:26.2777, lng:127.7296, verified:'osm', lvl:2, dir:'left', fest:true },
+  kokusai:      { name:'国際通り',               lat:26.2152, lng:127.6880, verified:'osm',      lvl:3, dir:'bottom' },
+};
+
+const WISHLIST = [
+  { name:'沖縄ワールド', lat:26.1404, lng:127.7476, verified:'approx' },
+  { name:'果報バンタ',   lat:26.3608, lng:127.9922, verified:'osm' },
+  { name:'青の洞窟',     lat:26.4428, lng:127.7735, verified:'osm' },
+];
+
+const KOURI_LOOP = [
+  [26.6972,128.0207],[26.6989,128.0270],[26.7038,128.0298],[26.7097,128.0277],
+  [26.7129,128.0211],[26.7118,128.0130],[26.7069,128.0081],[26.7006,128.0092],
+  [26.6978,128.0151],[26.6972,128.0207],
+];
+
+/* 移動手段：色とアイコン（自作SVG・白抜き。--c がバッジの色） */
+const ICONS = {
+  plane:'<svg viewBox="0 0 24 24"><path d="M12 2c.8 0 1.3.9 1.3 1.8V9l7.7 4.6v2l-7.7-2.4v4.6l2.3 1.8V21L12 20l-3.6 1v-1.4l2.3-1.8v-4.6L3 15.6v-2L10.7 9V3.8C10.7 2.9 11.2 2 12 2z" fill="#fff"/></svg>',
+  rail: '<svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="14.5" rx="4" fill="#fff"/><rect x="7.2" y="5" width="9.6" height="5" rx="1.5" style="fill:var(--c)"/><circle cx="8.8" cy="13.5" r="1.3" style="fill:var(--c)"/><circle cx="15.2" cy="13.5" r="1.3" style="fill:var(--c)"/><path d="M8.5 21.5l2-4M15.5 21.5l-2-4" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  bus:  '<svg viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="13.5" rx="3.5" fill="#fff"/><rect x="5" y="5.8" width="14" height="5.4" rx="1.4" style="fill:var(--c)"/><circle cx="6.8" cy="14" r="1.1" style="fill:var(--c)"/><circle cx="17.2" cy="14" r="1.1" style="fill:var(--c)"/><rect x="5" y="16" width="3.6" height="4.5" rx="1.2" fill="#fff"/><rect x="15.4" y="16" width="3.6" height="4.5" rx="1.2" fill="#fff"/></svg>',
+  taxi: '<svg viewBox="0 0 24 24"><rect x="9.5" y="1.8" width="5" height="2.6" rx=".8" fill="#fff"/><path d="M6.3 10.2L8 5.6h8l1.7 4.6z" fill="#fff"/><path d="M8.3 9.4l1-2.6h5.4l1 2.6z" style="fill:var(--c)"/><rect x="3" y="9.6" width="18" height="7.4" rx="2.4" fill="#fff"/><circle cx="6.8" cy="13.3" r="1.3" style="fill:var(--c)"/><circle cx="17.2" cy="13.3" r="1.3" style="fill:var(--c)"/><rect x="5" y="16" width="3.4" height="4" rx="1.2" fill="#fff"/><rect x="15.6" y="16" width="3.4" height="4" rx="1.2" fill="#fff"/></svg>',
+  ferry:'<svg viewBox="0 0 24 24"><rect x="12.5" y="3" width="3" height="4.5" rx=".8" fill="#fff"/><rect x="6" y="7" width="11" height="5.5" rx="1.5" fill="#fff"/><rect x="7.8" y="8.6" width="2.2" height="2" rx=".5" style="fill:var(--c)"/><rect x="11" y="8.6" width="2.2" height="2" rx=".5" style="fill:var(--c)"/><path d="M2 12.5h20l-3.2 5.5H5.2z" fill="#fff"/><path d="M2 21.2c1.7 0 1.7-1.2 3.3-1.2s1.7 1.2 3.4 1.2 1.7-1.2 3.3-1.2 1.7 1.2 3.4 1.2 1.7-1.2 3.3-1.2 1.6 1.2 3.3 1.2" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  bike: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.8" cy="15.5" r="4"/><circle cx="18.2" cy="15.5" r="4"/><path d="M5.8 15.5L9.5 8h6.5l2.2 7.5M9.5 8l3.3 7.5H5.8M14.5 5h2.8M8 5.5h3"/></svg>',
+  walk: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="3.8" r="2.2" fill="#fff" stroke="none"/><path d="M12.4 8l-1.8 6.2 3.2 3.2V22M10.6 14.2L8.4 22M12.4 8l3 3.2 3.1.9M12.4 8L9.3 10l-1.8 3"/></svg>',
+  guitar:'<svg viewBox="0 0 24 24"><path d="M14 10l6-6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><rect x="18" y="1.5" width="4" height="4" rx="1" fill="#fff" transform="rotate(45 20 3.5)"/><circle cx="12.4" cy="11.6" r="3.6" fill="#fff"/><circle cx="8.6" cy="15.4" r="5.4" fill="#fff"/><circle cx="10" cy="14" r="1.6" style="fill:var(--c)"/><path d="M6.5 17.5l2.2-2.2" stroke="var(--c)" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  star: '<svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17.1l-5.9 3.2 1.3-6.5L2.5 9.3l6.6-.8z" fill="#ffd23f" stroke="#24323f" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+};
+const MODES = {
+  plane:{ label:'飛行機',     color:'#ff6b57' },
+  rail: { label:'ゆいレール', color:'#19a7ce' },
+  bus:  { label:'バス',       color:'#2bb673' },
+  taxi: { label:'タクシー',   color:'#ff9f1c' },
+  ferry:{ label:'フェリー',   color:'#1e6fd9' },
+  bike: { label:'自転車',     color:'#ff4f8b' },
+  walk: { label:'徒歩',       color:'#8e6cf0' },
+};
+
+const LEGS = [
+  // ---- DAY 1 ----
+  { day:1, date:'11/5', dow:'木', time:'10:00 → 12:40', title:'名古屋（中部）から那覇へフライト',
+    note:'空港近くで沖縄そばのランチ。', view:'japan',
+    segs:[{ mode:'plane', pts:['nagoya','naha_ap'], bend:-0.16 }] },
+  { day:1, date:'11/5', dow:'木', time:'13:20', title:'ゆいレールで県庁前駅へ',
+    note:'コンビニで飲み物と軽食を買ってバスを待つ。', maxZoom:13,
+    segs:[{ mode:'rail', pts:['naha_ap','kencho'] }] },
+  { day:1, date:'11/5', dow:'木', time:'14:30 → 16:10', title:'120番バスで北上、万座毛へ',
+    note:'恩納村役場前で下車。象の鼻の断崖と東シナ海。',
+    segs:[{ mode:'bus', pts:['kencho','manzamo'] }] },
+  { day:1, date:'11/5', dow:'木', time:'17:30 → 18:30', title:'本部町のゲストハウスへ（1泊目）',
+    note:'120→65番を乗り継いで本部港へ。DO PI-CANにチェックイン、夜はオリオンビール。',
+    segs:[{ mode:'bus', pts:['manzamo','nago_bt','dopican'] }] },
+  // ---- DAY 2 ----
+  { day:2, date:'11/6', dow:'金', time:'8:30 → 9:00', title:'朝食・チェックアウトして渡久地港へ',
+    note:'港までの手段は未確定。', maxZoom:13,
+    segs:[{ mode:'walk', pts:['dopican','toguchi'] }] },
+  { day:2, date:'11/6', dow:'金', time:'9:00 → 9:15', title:'フェリーで水納島へ',
+    note:'約15分の船旅。島で泳いで、昼食も島で。', maxZoom:12,
+    segs:[{ mode:'ferry', pts:['toguchi','minna'], bend:0.18 }] },
+  { day:2, date:'11/6', dow:'金', time:'13:30 → 13:45', title:'水納島から渡久地港へ戻る',
+    note:'帰りのフェリーで本島へ。', maxZoom:12,
+    segs:[{ mode:'ferry', pts:['minna','toguchi'], bend:0.18 }] },
+  { day:2, date:'11/6', dow:'金', time:'13:45 → 14:30', title:'タクシーで美らテラスへ',
+    note:'渡久地港から約30〜40分。',
+    segs:[{ mode:'taxi', pts:['toguchi','churaterrace'] }] },
+  { day:2, date:'11/6', dow:'金', time:'14:40 → 16:10', title:'古宇利大橋サイクリング',
+    note:'電動アシストで約14km。橋を渡って島を一周し、また橋で戻る。16:10までに返却。',
+    route:'美らテラス → 古宇利大橋 → 古宇利島一周 → 美らテラス', maxZoom:13.5,
+    segs:[{ mode:'bike', pts:['churaterrace','kouri_bridge',...KOURI_LOOP,'kouri_bridge','churaterrace'] }] },
+  { day:2, date:'11/6', dow:'金', time:'16:15 → 19:35', title:'バスを乗り継いでアメリカンビレッジへ',
+    note:'徒歩約19分で運天原へ。仲宗根・名護BTで乗り継いで桑江へ。夜景を散策して夕食。',
+    warn:'⚠ 運天原16:36発を逃すと、その日の那覇方面の公共交通はなし',
+    route:'美らテラス → 運天原 → 名護BT → アメリカンビレッジ',
+    segs:[{ mode:'walk', pts:['churaterrace','untenbaru'] },
+          { mode:'bus',  pts:['untenbaru','nago_bt','american'] }] },
+  { day:2, date:'11/6', dow:'金', time:'21:00 → 21:50', title:'那覇のゲストハウス海風へ（2泊目）',
+    note:'公共交通で約48分。県庁前駅から徒歩3分の宿。',
+    segs:[{ mode:'bus', pts:['american','kaifu'] }] },
+  // ---- DAY 3 ----
+  { day:3, date:'11/7', dow:'土', time:'9:30 → 10:30', title:'WWW!! 26 フェス1日目へ',
+    note:'ゆいレールでおもろまち駅、シャトルバスで会場へ。11:00開場・13:00開演！',
+    segs:[{ mode:'rail', pts:['kaifu','omoro'] }, { mode:'bus', pts:['omoro','festival'] }] },
+  { day:3, date:'11/7', dow:'土', time:'終演後 → 22:30', title:'終演、那覇へ戻る（3泊目）',
+    note:'帰りのシャトルは19:00〜22:00運行。国際通りで打ち上げも。',
+    segs:[{ mode:'bus', pts:['festival','omoro'] }, { mode:'rail', pts:['omoro','kaifu'] }] },
+  // ---- DAY 4 ----
+  { day:4, date:'11/8', dow:'日', time:'10:00', title:'フェス2日目へ',
+    note:'昨日と同じ道のり。13:00 MONGOL800 フィナーレ開演！',
+    segs:[{ mode:'rail', pts:['kaifu','omoro'] }, { mode:'bus', pts:['omoro','festival'] }] },
+  { day:4, date:'11/8', dow:'日', time:'終演後 → 22:00', title:'那覇へ戻る（4泊目）',
+    note:'シャトルとゆいレールで宿へ。最後の那覇グルメ。',
+    segs:[{ mode:'bus', pts:['festival','omoro'] }, { mode:'rail', pts:['omoro','kaifu'] }] },
+  // ---- DAY 5 ----
+  { day:5, date:'11/9', dow:'月', time:'9:30 → 10:30〜', title:'国際通りでお土産',
+    note:'チェックアウトして荷物を預け、散策・最後のランチ・お土産探し。', maxZoom:14,
+    segs:[{ mode:'walk', pts:['kaifu','kokusai'] }] },
+  { day:5, date:'11/9', dow:'月', time:'15:30', title:'ゆいレールで那覇空港へ',
+    note:'空港まで約15分。', maxZoom:13,
+    segs:[{ mode:'rail', pts:['kokusai','naha_ap'] }] },
+  { day:5, date:'11/9', dow:'月', time:'16:55 → 18:55', title:'名古屋へ帰る',
+    note:'さよなら沖縄、また来るね。', view:'japan',
+    segs:[{ mode:'plane', pts:['naha_ap','nagoya'], bend:-0.12 }] },
+];
+
+/* 日ごとの線の色（3日目と4日目は同じ道なので色を変える） */
+const DAY_COLOR = { 1:'#ff6b57', 2:'#ff9f1c', 3:'#ff4f8b', 4:'#8e6cf0', 5:'#19a7ce' };
+const JAPAN = [[24.6,125.5],[45.6,146.0]];
+
+/* =====================================================================
+   ここから下は演出のコード
+   ===================================================================== */
+const DOW_LABEL = d => `${d.date}（${d.dow}）`;
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches || /[?&]reduce\b/.test(location.search);
+const $ = s => document.querySelector(s);
+const P = p => typeof p === 'string' ? [STOPS[p].lat, STOPS[p].lng] : p;
+const badge = (mode, cls = '') => `<span class="badge ${cls}" style="--c:${MODES[mode].color}" title="${MODES[mode].label}">${ICONS[mode]}</span>`;
+
+$('#legendWish').insertAdjacentHTML('afterbegin', ICONS.star);
+
+/* ---------- 時系列カード ---------- */
+const timeline = $('#timeline');
+const cards = [];
+let lastDay = 0;
+LEGS.forEach(leg => {
+  if (leg.day !== lastDay) {
+    lastDay = leg.day;
+    const sep = document.createElement('li');
+    sep.className = 'day-sep';
+    sep.style.setProperty('--c', DAY_COLOR[leg.day]);
+    sep.innerHTML = `<span class="pill">DAY ${leg.day}</span><small>${DOW_LABEL(leg)}</small>`;
+    timeline.appendChild(sep);
+  }
+  const li = document.createElement('li');
+  li.className = 'card';
+  li.style.setProperty('--c', DAY_COLOR[leg.day]);
+  li.innerHTML = `
+    <div class="card-head"><span>DAY ${leg.day}</span><span>${DOW_LABEL(leg)}</span><span class="time">${leg.time}</span></div>
+    <h3><span class="icons">${leg.segs.map(s => badge(s.mode, 'sm')).join('')}</span>${leg.title}</h3>
+    <p class="route">${leg.route || routeText(leg)}</p>
+    <p class="note">${leg.note}</p>
+    ${leg.warn ? `<p class="warn">${leg.warn}</p>` : ''}`;
+  timeline.appendChild(li);
+  cards.push(li);
+});
+if (reduced) $('#motionNote').classList.add('show');
+
+function routeText(leg) {
+  const names = [];
+  leg.segs.forEach(s => s.pts.forEach(p => {
+    if (typeof p !== 'string') return;
+    const n = STOPS[p].name.replace(/（.*?）/, '');
+    if (names[names.length - 1] !== n) names.push(n);
+  }));
+  return names.join(' → ');
+}
+function setActive(i) {
+  cards.forEach((c, j) => {
+    c.classList.toggle('active', j === i);
+    c.classList.toggle('done', i < 0 ? false : j < i);
+  });
+  const c = cards[i];
+  if (c) {
+    const panel = $('#panel');
+    panel.scrollTop = c.offsetTop - panel.clientHeight / 2 + c.offsetHeight / 2;
+  }
+}
+function allDone() { cards.forEach(c => { c.classList.remove('active'); c.classList.add('done'); }); }
+
+/* ---------- Leaflet が読めないとき ---------- */
+if (!window.L) {
+  $('#fallback').classList.add('show');
+  ['#btnStart', '#btnSkip'].forEach(s => $(s).disabled = true);
+  return;
+}
+
+/* ---------- 地図 ---------- */
+const map = L.map('map', { zoomSnap:0.25, zoomControl:true });
+map.fitBounds(JAPAN);
+/* 地図タイル。1つ目が読めなければ次の候補へ切り替える
+   （OpenStreetMap 公式タイルは file:// などで開くと「Access blocked」になるため使わない） */
+const TILE_PROVIDERS = [
+  /* 国土地理院タイル（APIキー・リファラ不要。file:// でも表示できる） */
+  { url:'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', maxZoom:18, maxNativeZoom:18,
+    attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>' },
+  { url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', maxZoom:18,
+    attribution:'Tiles &copy; Esri' },
+];
+let tileLayer = null;
+function useProvider(n) {
+  if (tileLayer) map.removeLayer(tileLayer);
+  const pv = TILE_PROVIDERS[n];
+  let ok = 0, bad = 0;
+  tileLayer = L.tileLayer(pv.url, { maxZoom:pv.maxZoom, attribution:pv.attribution })
+    .on('tileload', () => { ok++; $('#tileWarn').classList.remove('show'); })
+    .on('tileerror', () => {
+      if (++bad < 4 || ok > 0) return;
+      if (n + 1 < TILE_PROVIDERS.length) useProvider(n + 1);
+      else $('#tileWarn').classList.add('show');
+    })
+    .addTo(map);
+}
+useProvider(0);
+
+function updateZoomClass() {
+  const z = map.getZoom(), el = map.getContainer();
+  el.classList.toggle('zl-low', z < 8.5);
+  el.classList.toggle('zl-mid', z >= 8.5 && z < 11.75);
+}
+map.on('zoomend', updateZoomClass);
+updateZoomClass();
+
+const stopMarkers = {};
+let festMarker = null;
+Object.entries(STOPS).forEach(([id, s]) => {
+  let m;
+  if (s.fest) {
+    m = festMarker = L.marker([s.lat, s.lng], { icon:L.divIcon({ className:'', html:`<div class="fest"><span class="badge" style="--c:#ff4f8b">${ICONS.guitar}</span></div>`, iconSize:[46,46], iconAnchor:[23,23] }), zIndexOffset:500 });
+  } else {
+    m = L.marker([s.lat, s.lng], { icon:L.divIcon({ className:'', html:'<div class="stop-dot"></div>', iconSize:[14,14], iconAnchor:[7,7] }), keyboard:false });
+  }
+  const off = { right:[12,0], left:[-12,0], top:[0,-10], bottom:[0,10] }[s.dir] || [12,0];
+  const offF = s.fest ? off.map(v => v * 2) : off;
+  m.bindTooltip(s.name, { permanent:true, direction:s.dir, offset:offF, className:`stop-label lvl-${s.lvl}` });
+  m.addTo(map);
+  stopMarkers[id] = m;
+});
+WISHLIST.forEach(w => {
+  L.marker([w.lat, w.lng], { icon:L.divIcon({ className:'', html:`<div class="wish">${ICONS.star}</div>`, iconSize:[20,20], iconAnchor:[10,10] }) })
+    .bindTooltip(`行きたい場所：${w.name}`, { className:'wish-label', direction:'top' })
+    .addTo(map);
+});
+
+function stopEl(id) { const e = stopMarkers[id].getElement(); return e && e.querySelector('.stop-dot'); }
+function markVisited(leg) {
+  leg.segs.forEach(s => s.pts.forEach(p => {
+    if (typeof p !== 'string') return;
+    const el = stopEl(p);
+    if (el) { el.classList.add('visited'); el.classList.remove('ping'); void el.offsetWidth; if (!reduced) el.classList.add('ping'); }
+  }));
+}
+function resetStops() { Object.keys(stopMarkers).forEach(id => { const el = stopEl(id); if (el) el.classList.remove('visited', 'ping'); }); }
+function setFestActive(on) { const e = festMarker && festMarker.getElement(); if (e) e.querySelector('.fest').classList.toggle('active', on); }
+
+/* ---------- 経路の形 ---------- */
+function hav(a, b) {
+  const R = 6371, r = Math.PI / 180;
+  const dLat = (b[0] - a[0]) * r, dLng = (b[1] - a[1]) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+function arc(a, b, bend, n = 100) {
+  const k = Math.cos((a[0] + b[0]) / 2 * Math.PI / 180);
+  const dx = (b[1] - a[1]) * k, dy = b[0] - a[0];
+  const c = [(a[0] + b[0]) / 2 + dx * bend, (a[1] + b[1]) / 2 - dy * bend / k];
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, u = 1 - t;
+    out.push([u*u*a[0] + 2*u*t*c[0] + t*t*b[0], u*u*a[1] + 2*u*t*c[1] + t*t*b[1]]);
+  }
+  return out;
+}
+function buildPath(seg) {
+  let pts = seg.pts.map(P);
+  if (seg.bend) pts = arc(pts[0], pts[pts.length - 1], seg.bend, seg.mode === 'plane' ? 120 : 40);
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + hav(pts[i - 1], pts[i]));
+  return { pts, cum, len:cum[cum.length - 1] };
+}
+function pointAt(path, f) {
+  const d = Math.max(0, Math.min(1, f)) * path.len, c = path.cum;
+  let lo = 0, hi = c.length - 1;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (c[mid] <= d) lo = mid; else hi = mid; }
+  const span = c[hi] - c[lo] || 1, t = (d - c[lo]) / span, a = path.pts[lo], b = path.pts[hi];
+  return { i:lo, p:[a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t] };
+}
+function subPath(path, f) { const { i, p } = pointAt(path, f); return path.pts.slice(0, i + 1).concat([p]); }
+LEGS.forEach(leg => leg.segs.forEach(s => { s.path = buildPath(s); }));
+const TOTAL_KM = LEGS.reduce((sum, l) => sum + l.segs.reduce((a, s) => a + s.path.len, 0), 0);
+
+function segDuration(seg) {
+  if (seg.mode === 'plane') return 7000;
+  if (seg.mode === 'bike') return 6500;
+  return Math.max(1300, Math.min(5500, 700 * Math.sqrt(seg.path.len) + 700));
+}
+const ease = f => f < .5 ? 2 * f * f : 1 - (-2 * f + 2) ** 2 / 2;
+const easeSine = f => -(Math.cos(Math.PI * f) - 1) / 2;
+
+/* ---------- 乗り物 ---------- */
+let vehicle = null, vehicleMode = null;
+function setVehicle(mode, at) {
+  if (!vehicle) vehicle = L.marker(at, { interactive:false, keyboard:false, zIndexOffset:1000 }).addTo(map);
+  if (mode !== vehicleMode) {
+    vehicleMode = mode;
+    const html = `<div class="veh ${mode}"><div class="veh-inner">${badge(mode)}</div></div>`;
+    vehicle.setIcon(L.divIcon({ className:'vehicle', html, iconSize:[48,48], iconAnchor:[24,24] }));
+  }
+  vehicle.setLatLng(at);
+}
+/* Leaflet はマーカー位置を整数ピクセルに丸めるので、小数のまま置き直してなめらかに動かす */
+function moveVehicle(p) {
+  vehicle.setLatLng(p);
+  const el = vehicle.getElement();
+  if (el) L.DomUtil.setPosition(el, map.project(p).subtract(map.getPixelOrigin()));
+}
+/* 飛行機の向きは出発地→到着地で固定（区間の最初に1回だけ計算） */
+function planeAngle(path) {
+  const a = map.latLngToLayerPoint(path.pts[0]), b = map.latLngToLayerPoint(path.pts[path.pts.length - 1]);
+  return Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI + 90;
+}
+function orientPlane(ang, f) {
+  const el = vehicle.getElement(); if (!el) return;
+  const svg = el.querySelector('.badge svg');
+  if (svg) svg.style.transform = `rotate(${ang}deg)`;
+  el.querySelector('.veh-inner').style.transform = `scale(${1 + 0.3 * Math.sin(Math.PI * f)})`;
+}
+function removeVehicle() { if (vehicle) { map.removeLayer(vehicle); vehicle = null; vehicleMode = null; } }
+
+/* ---------- 再生エンジン ---------- */
+const engine = { token:0, running:false, paused:false, speed:1, leg:-1, finished:false };
+class Abort extends Error {}
+const check = tok => { if (tok !== engine.token) throw new Abort(); };
+const frame = () => new Promise(r => requestAnimationFrame(r));
+async function tween(ms, fn, tok) {
+  let t = 0, last = performance.now();
+  while (t < ms) {
+    const now = await frame(); check(tok);
+    const dt = Math.min(100, now - last); last = now;
+    if (!engine.paused) t += dt * engine.speed;
+    fn(Math.min(1, t / ms));
+  }
+}
+const wait = (ms, tok) => tween(ms, () => {}, tok);
+
+const routeLayer = L.layerGroup().addTo(map);
+function drawDone(seg, day) {
+  L.polyline(seg.path.pts, { color:'#ffffff', weight:9, opacity:.95, lineCap:'round', lineJoin:'round', interactive:false }).addTo(routeLayer);
+  L.polyline(seg.path.pts, { color:DAY_COLOR[day], weight:5, opacity:1, lineCap:'round', lineJoin:'round', interactive:false }).addTo(routeLayer);
+}
+function legBounds(leg) {
+  if (leg.view === 'japan') return L.latLngBounds(JAPAN);
+  return L.latLngBounds(leg.segs.flatMap(s => s.path.pts)).pad(0.3);
+}
+function fitOpts(leg) {
+  const small = map.getSize().x < 500;
+  return { paddingTopLeft:[24, 24], paddingBottomRight:[small ? 24 : 60, small ? 70 : 100], maxZoom:leg.maxZoom || 12 };
+}
+async function camera(leg, tok) {
+  const b = legBounds(leg), opt = fitOpts(leg);
+  if (reduced) { map.fitBounds(b, { ...opt, animate:false }); return; }
+  const dur = 1.6 / engine.speed;
+  await new Promise(res => {
+    let done = false; const fin = () => { if (!done) { done = true; res(); } };
+    map.once('moveend', fin);
+    map.flyToBounds(b, { ...opt, duration:dur });
+    setTimeout(fin, dur * 1000 + 900);
+  });
+  check(tok);
+}
+async function runSeg(seg, leg, tok) {
+  const path = seg.path;
+  setVehicle(seg.mode, path.pts[0]);
+  if (!reduced) {
+    const color = DAY_COLOR[leg.day];
+    const casing = L.polyline([path.pts[0]], { color:'#ffffff', weight:8, opacity:.9, lineCap:'round', interactive:false }).addTo(routeLayer);
+    const live = L.polyline([path.pts[0]], { color, weight:4.5, dashArray:'11 9', lineCap:'round', className:'live-line', interactive:false }).addTo(routeLayer);
+    const ez = seg.mode === 'plane' ? easeSine : ease;
+    const ang = seg.mode === 'plane' ? planeAngle(path) : 0;
+    await tween(segDuration(seg), f => {
+      const e = ez(f), sp = subPath(path, e);
+      casing.setLatLngs(sp); live.setLatLngs(sp);
+      moveVehicle(pointAt(path, e).p);
+      if (seg.mode === 'plane') orientPlane(ang, e);
+    }, tok);
+    routeLayer.removeLayer(live); routeLayer.removeLayer(casing);
+  } else if (seg.mode === 'plane') {
+    orientPlane(planeAngle(path), 0);
+  }
+  drawDone(seg, leg.day);
+  vehicle.setLatLng(path.pts[path.pts.length - 1]);
+}
+
+function showCaption(leg) {
+  const c = $('#caption');
+  c.querySelector('.cap-icons').innerHTML = leg.segs.map(s => badge(s.mode, 'sm')).join('');
+  c.querySelector('.cap-day').textContent = `DAY ${leg.day} ・ ${DOW_LABEL(leg)} ・ ${leg.time}`;
+  c.querySelector('.cap-title').textContent = leg.title;
+  c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
+}
+const hideCaption = () => $('#caption').classList.remove('show');
+const touchesFest = leg => leg.segs.some(s => s.pts.includes('festival'));
+
+async function play() {
+  const tok = ++engine.token;
+  engine.running = true; engine.paused = false; engine.finished = false;
+  updateUI();
+  try {
+    for (let i = 0; i < LEGS.length; i++) {
+      const leg = LEGS[i];
+      engine.leg = i;
+      setActive(i); showCaption(leg); setFestActive(touchesFest(leg));
+      await camera(leg, tok);
+      for (const seg of leg.segs) await runSeg(seg, leg, tok);
+      markVisited(leg);
+      await wait(reduced ? 1600 : 800, tok);
+    }
+    finish();
+  } catch (e) { if (!(e instanceof Abort)) throw e; }
+}
+function confetti() {
+  const box = $('#endcard');
+  box.querySelectorAll('.confetti').forEach(c => c.remove());
+  if (reduced) return;
+  const colors = Object.values(DAY_COLOR).concat('#ffd23f', '#2bb673');
+  for (let i = 0; i < 40; i++) {
+    const s = document.createElement('span');
+    s.className = 'confetti';
+    s.style.left = `${Math.random() * 100}%`;
+    s.style.background = colors[i % colors.length];
+    s.style.animationDuration = `${2.2 + Math.random() * 2}s`;
+    s.style.animationDelay = `${Math.random() * .8}s`;
+    box.appendChild(s);
+  }
+}
+function finish() {
+  engine.running = false; engine.paused = false; engine.finished = true; engine.leg = LEGS.length;
+  allDone(); hideCaption(); setFestActive(false);
+  $('#endStats').textContent = `5日間・${LEGS.length}区間・約 ${Math.round(TOTAL_KM).toLocaleString()} km の旅`;
+  $('#endcard').classList.add('show');
+  confetti();
+  updateUI();
+}
+function reset() {
+  engine.token++; engine.running = false; engine.paused = false; engine.finished = false; engine.leg = -1;
+  map.stop(); routeLayer.clearLayers(); removeVehicle(); resetStops(); setFestActive(false);
+  setActive(-1); $('#panel').scrollTop = 0; hideCaption();
+  $('#endcard').classList.remove('show');
+  map.fitBounds(JAPAN, { animate:false });
+  updateUI();
+}
+function skip() {
+  reset();
+  engine.token++;
+  LEGS.forEach(leg => { leg.segs.forEach(s => drawDone(s, leg.day)); markVisited(leg); });
+  const last = LEGS[LEGS.length - 1].segs[0].path;
+  setVehicle('plane', P('nagoya'));
+  orientPlane(planeAngle(last), 0);
+  map.fitBounds(JAPAN, { animate:false });
+  finish();
+}
+
+/* ---------- ボタン ---------- */
+const btnStart = $('#btnStart');
+function updateUI() {
+  if (engine.running) btnStart.textContent = engine.paused ? '▶ 再開' : '❚❚ 一時停止';
+  else btnStart.innerHTML = engine.finished ? '↻ <span class="jp">もう一度（</span>START<span class="jp">）</span>'
+                                            : '▶ <span class="jp">旅を開始（</span>START<span class="jp">）</span>';
+  btnStart.setAttribute('aria-pressed', String(engine.running && !engine.paused));
+}
+btnStart.addEventListener('click', () => {
+  if (engine.running) { engine.paused = !engine.paused; updateUI(); return; }
+  if (engine.finished) reset();
+  play();
+});
+$('#btnReset').addEventListener('click', reset);
+$('#btnSkip').addEventListener('click', skip);
+$('#btnAgain').addEventListener('click', () => { reset(); play(); });
+$('#btnClose').addEventListener('click', () => $('#endcard').classList.remove('show'));
+document.querySelectorAll('.speed button').forEach(b => b.addEventListener('click', () => {
+  engine.speed = Number(b.dataset.speed);
+  document.querySelectorAll('.speed button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+}));
+window.addEventListener('resize', () => map.invalidateSize());
+
+window.trip = { engine, LEGS, STOPS, reset, skip };
+})();
+</script>
+</body>
+</html>

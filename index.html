@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>沖縄冒険行路図 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Zen+Antique&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<style>
+:root{
+  --bg:#150e08;
+  --wood:#24170e;
+  --wood-2:#2f1f12;
+  --ink:#2a190c;
+  --parch:#ecd9ae;
+  --parch-2:#dcc28c;
+  --parch-3:#b8955a;
+  --gold:#c9a04e;
+  --gold-dk:#8a6a2c;
+  --red:#d2362a;
+  --red-dk:#8e1c12;
+  --cream:#f5e7c6;
+  --muted:#8b6b45;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg);
+  color:var(--cream);
+  font-family:"Shippori Mincho","Yu Mincho","Hiragino Mincho ProN",serif;
+  display:flex;flex-direction:column;height:100dvh;overflow:hidden;
+}
+
+/* ---------- ヘッダー ---------- */
+header{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:10px 18px;
+  background:linear-gradient(#2c1c10,#1b110a);
+  border-bottom:2px solid var(--gold-dk);
+  box-shadow:0 2px 0 #0c0704, 0 6px 18px rgba(0,0,0,.5);
+  position:relative;z-index:5;
+}
+.title h1{
+  margin:0;font-family:"Zen Antique",serif;font-weight:400;
+  font-size:clamp(20px,2.6vw,30px);letter-spacing:.12em;color:var(--gold);
+  text-shadow:0 1px 0 #000, 0 0 12px rgba(201,160,78,.25);
+}
+.title p{margin:2px 0 0;font-size:12px;letter-spacing:.16em;color:var(--parch-3)}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{
+  font:inherit;font-weight:700;font-size:14px;letter-spacing:.06em;
+  color:var(--ink);cursor:pointer;
+  padding:8px 14px;border-radius:3px;
+  background:linear-gradient(#f0dca8,#c9a865);
+  border:1px solid #5b3d17;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 2px 0 #3a250e, 0 3px 8px rgba(0,0,0,.4);
+  transition:transform .08s, filter .15s;
+}
+.btn:hover{filter:brightness(1.07)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.5)}
+.btn.primary{background:linear-gradient(#e2503d,#a8261a);color:#fff3de;border-color:#4d0f08;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+.btn.ghost{background:transparent;color:var(--parch-2);border-color:var(--gold-dk);box-shadow:none}
+.speed{display:flex;border:1px solid var(--gold-dk);border-radius:3px;overflow:hidden}
+.speed button{
+  font:inherit;font-size:13px;font-weight:700;padding:7px 10px;cursor:pointer;
+  background:transparent;color:var(--parch-3);border:0;border-right:1px solid var(--gold-dk);
+}
+.speed button:last-child{border-right:0}
+.speed button[aria-pressed="true"]{background:var(--gold);color:var(--ink)}
+
+/* ---------- メイン ---------- */
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 380px}
+
+.map-frame{
+  position:relative;margin:14px;min-height:0;
+  border:10px solid #3b2615;
+  border-image:linear-gradient(135deg,#5a3b1d,#2a190c 30%,#4d321a 60%,#24160b) 1;
+  box-shadow:0 0 0 1px var(--gold), 0 0 0 4px #120a05, 0 0 0 5px var(--gold-dk), 0 10px 30px rgba(0,0,0,.7);
+}
+#map{position:absolute;inset:0;background:#2b1c0f}
+#map .leaflet-tile-pane{filter:grayscale(.35) sepia(1) saturate(1.35) hue-rotate(-12deg) brightness(.5) contrast(1.3)}
+.leaflet-container{font-family:inherit}
+.leaflet-control-attribution{background:rgba(36,23,14,.75)!important;color:var(--parch-3)!important;font-size:10px}
+.leaflet-control-attribution a{color:var(--parch-2)!important}
+.leaflet-bar a{background:#e5cf9f;color:var(--ink);border-color:#7a5a30}
+
+/* 羊皮紙の質感とビネット（クリックは地図へ通す） */
+.texture,.vignette{position:absolute;inset:0;pointer-events:none;z-index:640}
+.texture{
+  mix-blend-mode:overlay;opacity:.55;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='260'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .55  0 0 0 0 .40  0 0 0 0 .22  0 0 0 .9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+.vignette{background:radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(28,14,4,.55) 85%, rgba(15,7,2,.85) 100%)}
+
+/* 四隅の飾り */
+.corner{position:absolute;width:44px;height:44px;z-index:660;pointer-events:none;color:var(--gold)}
+.corner.tl{top:-6px;left:-6px}
+.corner.tr{top:-6px;right:-6px;transform:scaleX(-1)}
+.corner.bl{bottom:-6px;left:-6px;transform:scaleY(-1)}
+.corner.br{bottom:-6px;right:-6px;transform:scale(-1,-1)}
+
+.compass{position:absolute;top:14px;right:14px;width:78px;height:78px;z-index:650;pointer-events:none;opacity:.85}
+
+/* 現在の区間を示すキャプション */
+.caption{
+  position:absolute;left:50%;bottom:22px;transform:translate(-50%,8px);z-index:670;
+  min-width:min(420px,80%);max-width:88%;text-align:center;pointer-events:none;
+  background:linear-gradient(#efdcb0,#d8bc84);color:var(--ink);
+  border:1px solid #6b4a22;box-shadow:0 0 0 3px rgba(239,220,176,.35), 0 6px 18px rgba(0,0,0,.55);
+  padding:8px 18px 9px;opacity:0;transition:opacity .45s, transform .45s;
+}
+.caption.show{opacity:1;transform:translate(-50%,0)}
+.caption .cap-day{font-size:12px;letter-spacing:.18em;color:var(--red-dk);font-weight:800}
+.caption .cap-title{font-family:"Zen Antique",serif;font-size:clamp(16px,2vw,22px);margin-top:2px}
+
+.legend{
+  position:absolute;right:12px;bottom:28px;z-index:650;
+  background:rgba(236,217,174,.9);color:var(--ink);font-size:11px;line-height:1.7;
+  border:1px solid #6b4a22;padding:6px 10px;
+}
+.legend i{display:inline-block;width:26px;height:0;vertical-align:middle;margin-right:6px}
+.legend .l-done{border-top:4px solid var(--red-dk)}
+.legend .l-live{border-top:3px dashed var(--red)}
+
+/* 停留地点マーカー */
+.stop-dot{
+  width:12px;height:12px;border-radius:50%;
+  background:var(--parch);border:2px solid #3b2412;box-shadow:0 0 0 2px rgba(0,0,0,.25);
+  transition:background .3s, transform .3s;
+}
+.stop-dot.visited{background:var(--red);border-color:#3b0d07}
+.stop-dot.ping{animation:ping .9s ease-out}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(210,54,42,.9)}100%{box-shadow:0 0 0 18px rgba(210,54,42,0)}}
+
+.leaflet-tooltip.stop-label{
+  background:transparent;border:0;box-shadow:none;padding:0 4px;
+  color:var(--cream);font-weight:800;font-size:13px;letter-spacing:.04em;
+  text-shadow:0 0 3px #1a0d04,0 0 3px #1a0d04,0 1px 2px #000;
+}
+.leaflet-tooltip.stop-label::before{display:none}
+.zl-low .lvl-2,.zl-low .lvl-3,.zl-mid .lvl-3{display:none}
+.leaflet-tooltip.wish-label{background:#ecd9ae;color:var(--ink);border:1px solid #6b4a22;font-size:12px}
+
+.wish{font-size:16px;color:var(--parch);opacity:.6;text-shadow:0 0 4px #000;line-height:1;text-align:center}
+
+/* フェス会場 🎸 */
+.fest{position:relative;width:40px;height:40px;display:grid;place-items:center;font-size:24px}
+.fest::before,.fest::after{
+  content:"";position:absolute;inset:4px;border-radius:50%;
+  border:2px solid rgba(232,64,44,.85);animation:pulse 1.8s ease-out infinite;
+}
+.fest::after{animation-delay:.9s}
+.fest.active{font-size:30px}
+.fest.active::before,.fest.active::after{border-color:#ff5a3c;animation-duration:1.1s}
+.fest span{position:relative;filter:drop-shadow(0 2px 2px rgba(0,0,0,.7));animation:bob 1.8s ease-in-out infinite}
+@keyframes pulse{0%{transform:scale(.6);opacity:1}100%{transform:scale(1.9);opacity:0}}
+@keyframes bob{50%{transform:scale(1.12)}}
+
+/* 乗り物 */
+.vehicle{pointer-events:none}
+.veh{width:44px;height:44px;display:grid;place-items:center;font-size:28px;line-height:1;
+  filter:drop-shadow(0 3px 3px rgba(0,0,0,.75))}
+.veh svg{width:38px;height:38px}
+
+/* 赤い線 */
+.live-line{animation:march .7s linear infinite}
+@keyframes march{to{stroke-dashoffset:-19}}
+
+/* フォールバック・注意表示 */
+.fallback{
+  position:absolute;inset:0;z-index:700;display:none;place-items:center;text-align:center;
+  background:#2b1c0f;color:var(--parch);padding:24px;font-size:18px;line-height:1.8;
+}
+.fallback.show{display:grid}
+.tile-warn{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:680;display:none;
+  background:#ecd9ae;color:var(--ink);border:1px solid #6b4a22;padding:6px 12px;font-size:13px;
+}
+.tile-warn.show{display:block}
+
+/* エンドカード */
+.endcard{position:absolute;inset:0;z-index:690;display:none;place-items:center;background:rgba(12,6,2,.55)}
+.endcard.show{display:grid;animation:fadein .6s ease}
+@keyframes fadein{from{opacity:0}}
+.end-inner{
+  text-align:center;color:var(--ink);padding:26px 34px;max-width:90%;
+  background:linear-gradient(#f1dfb5,#d6b97f);border:2px solid #5b3d17;
+  box-shadow:0 0 0 6px rgba(241,223,181,.25), 0 16px 40px rgba(0,0,0,.6);
+}
+.end-kicker{margin:0;letter-spacing:.5em;font-size:12px;color:var(--red-dk);font-weight:800}
+.end-inner h2{font-family:"Zen Antique",serif;font-weight:400;font-size:clamp(28px,4vw,42px);margin:6px 0 8px}
+.end-inner p{margin:4px 0}
+.end-inner .btns{margin-top:16px;display:flex;gap:8px;justify-content:center}
+
+/* ---------- 時系列カード ---------- */
+aside{
+  min-height:0;overflow-y:auto;padding:14px 14px 40px 4px;scroll-behavior:smooth;
+  background:linear-gradient(90deg,transparent,rgba(0,0,0,.25));
+}
+.timeline{list-style:none;margin:0;padding:0 0 0 10px}
+.day-sep{
+  font-family:"Zen Antique",serif;color:var(--gold);font-size:17px;letter-spacing:.1em;
+  margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--gold-dk);
+}
+.day-sep:first-child{margin-top:0}
+.day-sep small{font-family:"Shippori Mincho",serif;font-size:12px;color:var(--parch-3);margin-left:8px}
+.card{
+  position:relative;margin:0 0 10px;padding:10px 12px 10px 14px;
+  background:linear-gradient(#efdcb1,#dfc48e);color:var(--ink);
+  border:1px solid #7a5a30;border-left:5px solid var(--parch-3);
+  box-shadow:0 2px 6px rgba(0,0,0,.35);
+  transition:opacity .4s, transform .35s, box-shadow .35s, border-color .35s, filter .4s;
+}
+.card.active{
+  border-left-color:var(--red);transform:translateX(-6px);
+  box-shadow:0 0 0 2px var(--red), 0 0 22px rgba(210,54,42,.45), 0 4px 12px rgba(0,0,0,.5);
+}
+.card.done{opacity:.5;filter:sepia(.4)}
+.card.done::after{
+  content:"済";position:absolute;right:10px;top:8px;
+  font-family:"Zen Antique",serif;color:var(--red-dk);border:2px solid var(--red-dk);border-radius:50%;
+  width:26px;height:26px;display:grid;place-items:center;font-size:13px;transform:rotate(-12deg);opacity:.8;
+}
+.card-head{display:flex;gap:8px;align-items:baseline;font-size:12px;font-weight:800;color:var(--red-dk);letter-spacing:.04em}
+.card-head .time{margin-left:auto;color:#4c3218;font-variant-numeric:tabular-nums;padding-right:28px}
+.card h3{margin:4px 0 2px;font-size:15.5px;line-height:1.4}
+.card h3 .icons{margin-right:4px}
+.card .route{margin:0;font-size:12.5px;color:#5a3d1c;font-weight:700}
+.card .note{margin:3px 0 0;font-size:12.5px;line-height:1.55}
+.card .warn{margin:4px 0 0;font-size:12px;color:var(--red-dk);font-weight:700}
+.motion-note{font-size:12px;color:var(--parch-3);margin:0 0 10px 10px;display:none}
+.motion-note.show{display:block}
+
+/* ---------- スマホ幅：カードは下部へ ---------- */
+@media (max-width:780px){
+  header{padding:8px 10px;gap:6px}
+  .title h1{font-size:19px}
+  .title p{display:none}
+  .controls{gap:6px;flex-wrap:nowrap}
+  .btn{padding:6px 9px;font-size:12.5px}
+  .btn .jp{display:none}
+  .speed button{padding:6px 7px;font-size:12px}
+  .caption .cap-day{font-size:10px;letter-spacing:.06em}
+  .caption .cap-title{font-size:15px}
+  main{display:flex;flex-direction:column}
+  .map-frame{flex:0 0 54%;margin:10px 10px 6px;border-width:7px}
+  aside{flex:1;padding:6px 12px 30px 6px;background:none}
+  .card.active{transform:none}
+  .compass{width:54px;height:54px;top:8px;right:8px}
+  .legend{display:none}
+  .caption{bottom:14px;padding:6px 12px}
+  .corner{width:32px;height:32px}
+}
+
+@media (prefers-reduced-motion: reduce){
+  .live-line,.fest::before,.fest::after,.fest span,.stop-dot.ping{animation:none!important}
+  .card,.caption{transition:none}
+  aside{scroll-behavior:auto}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="title">
+    <h1>沖縄 冒険行路図</h1>
+    <p>2026.11.5 — 11.9 ・ MONGOL800 フェスへの旅 ・ <a href="pop.html" style="color:var(--gold)">ポップ版 →</a></p>
+  </div>
+  <div class="controls">
+    <button id="btnStart" class="btn primary">▶ <span class="jp">旅を開始（</span>START<span class="jp">）</span></button>
+    <button id="btnReset" class="btn">↺ <span class="jp">リセット（</span>RESET<span class="jp">）</span></button>
+    <div class="speed" role="group" aria-label="再生速度">
+      <button data-speed="1" aria-pressed="true">1x</button>
+      <button data-speed="2" aria-pressed="false">2x</button>
+      <button data-speed="4" aria-pressed="false">4x</button>
+    </div>
+    <button id="btnSkip" class="btn ghost" title="アニメーションを省いて全ルートを表示" aria-label="スキップ">⏭<span class="jp"> スキップ</span></button>
+  </div>
+</header>
+
+<main>
+  <div class="map-frame">
+    <div id="map" aria-label="旅のルート地図"></div>
+    <div class="texture"></div>
+    <div class="vignette"></div>
+    <svg class="compass" viewBox="0 0 100 100" aria-hidden="true">
+      <g fill="none" stroke="#c9a04e" stroke-width="1.5">
+        <circle cx="50" cy="50" r="44"/><circle cx="50" cy="50" r="38" stroke-dasharray="2 3"/>
+      </g>
+      <polygon points="50,6 56,50 50,56 44,50" fill="#d2362a"/>
+      <polygon points="50,94 56,50 50,44 44,50" fill="#ecd9ae"/>
+      <polygon points="6,50 50,44 56,50 50,56" fill="#ecd9ae" opacity=".8"/>
+      <polygon points="94,50 50,44 44,50 50,56" fill="#ecd9ae" opacity=".8"/>
+      <text x="50" y="5" text-anchor="middle" font-size="11" fill="#ecd9ae" font-family="serif" dy="-1">N</text>
+    </svg>
+    <svg class="corner tl" viewBox="0 0 44 44" aria-hidden="true"><path d="M4 40V12Q4 4 12 4h28M10 40V16q0-6 6-6h24M4 4l9 9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="16" r="3" fill="currentColor"/></svg>
+    <svg class="corner tr" viewBox="0 0 44 44" aria-hidden="true"><path d="M4 40V12Q4 4 12 4h28M10 40V16q0-6 6-6h24M4 4l9 9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="16" r="3" fill="currentColor"/></svg>
+    <svg class="corner bl" viewBox="0 0 44 44" aria-hidden="true"><path d="M4 40V12Q4 4 12 4h28M10 40V16q0-6 6-6h24M4 4l9 9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="16" r="3" fill="currentColor"/></svg>
+    <svg class="corner br" viewBox="0 0 44 44" aria-hidden="true"><path d="M4 40V12Q4 4 12 4h28M10 40V16q0-6 6-6h24M4 4l9 9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16" cy="16" r="3" fill="currentColor"/></svg>
+    <div class="legend">
+      <div><i class="l-done"></i>通過した道のり</div>
+      <div><i class="l-live"></i>いま移動中</div>
+      <div>✧ 行きたい場所（今回は行かない）</div>
+    </div>
+    <div class="caption" id="caption"><div class="cap-day"></div><div class="cap-title"></div></div>
+    <div class="tile-warn" id="tileWarn">地図タイルを読み込めません（ルートのみ表示中）</div>
+    <div class="fallback" id="fallback"><div>🗺️<br>地図を読み込めません<br><small>インターネット接続を確認して、ページを再読み込みしてください。</small></div></div>
+    <div class="endcard" id="endcard" role="dialog" aria-label="旅の終わり">
+      <div class="end-inner">
+        <p class="end-kicker">THE END</p>
+        <h2>おつかれさま！</h2>
+        <p id="endStats"></p>
+        <p>MONGOL800 フェス 2日間、完走。</p>
+        <div class="btns">
+          <button class="btn primary" id="btnAgain">↻ もう一度</button>
+          <button class="btn" id="btnClose">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <aside id="panel">
+    <p class="motion-note" id="motionNote">※ 動きを減らす設定のため、各区間を一度に表示します。</p>
+    <ol class="timeline" id="timeline"></ol>
+  </aside>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+(() => {
+'use strict';
+
+/* =====================================================================
+   編集用データ（座標・文言はここだけ直せば反映されます）
+   verified: 'gmap'      = Googleマップのリンクから読み取った確定値
+             'osm'       = OpenStreetMap Nominatim で確認した値
+             'osm-area'  = Nominatim で地区（町名）までしか確認できなかった値
+             'approx'    = 未検証の近似値
+   lvl: 地図ラベルを出すズーム段階（1=常に / 2=沖縄本島が見える程度 / 3=那覇市内まで寄ったとき）
+   dir: ラベルの位置（right / left / top / bottom）
+   ===================================================================== */
+const STOPS = {
+  nagoya:       { name:'中部国際空港（名古屋）', lat:34.8599, lng:136.8162, verified:'osm',      lvl:1, dir:'right' },
+  naha_ap:      { name:'那覇空港',               lat:26.1967, lng:127.6490, verified:'osm',      lvl:1, dir:'left' },
+  kencho:       { name:'県庁前駅',               lat:26.2145, lng:127.6796, verified:'osm',      lvl:3, dir:'bottom' },
+  manzamo:      { name:'万座毛',                 lat:26.5054, lng:127.8504, verified:'osm',      lvl:2, dir:'left' },
+  dopican:      { name:'DO PI-CAN（本部町健堅）', lat:26.6460, lng:127.8835, verified:'osm-area', lvl:2, dir:'bottom' },
+  toguchi:      { name:'渡久地港',               lat:26.6592, lng:127.8894, verified:'gmap',     lvl:2, dir:'right' },
+  minna:        { name:'水納島',                 lat:26.6503, lng:127.8182, verified:'osm',      lvl:2, dir:'left' },
+  churaterrace: { name:'美らテラス',             lat:26.6780, lng:128.0120, verified:'gmap',     lvl:2, dir:'bottom' },
+  kouri_bridge: { name:'古宇利大橋',             lat:26.6860, lng:128.0169, verified:'osm',      lvl:3, dir:'left' },
+  kouri_island: { name:'古宇利島',               lat:26.7043, lng:128.0181, verified:'osm',      lvl:2, dir:'top' },
+  untenbaru:    { name:'運天原バス停',           lat:26.6690, lng:128.0018, verified:'osm-area', lvl:3, dir:'left' },
+  nago_bt:      { name:'名護バスターミナル',     lat:26.5965, lng:127.9655, verified:'osm',      lvl:2, dir:'right' },
+  american:     { name:'アメリカンビレッジ',     lat:26.3159, lng:127.7540, verified:'gmap',     lvl:2, dir:'left' },
+  kaifu:        { name:'ゲストハウス海風',       lat:26.2146, lng:127.6781, verified:'gmap',     lvl:3, dir:'top' },
+  omoro:        { name:'おもろまち駅',           lat:26.2228, lng:127.6984, verified:'osm-area', lvl:3, dir:'right' },
+  festival:     { name:'宜野湾港マリーナ（フェス会場）', lat:26.2777, lng:127.7296, verified:'osm', lvl:2, dir:'left', fest:true },
+  kokusai:      { name:'国際通り',               lat:26.2152, lng:127.6880, verified:'osm',      lvl:3, dir:'bottom' },
+};
+
+/* 行きたい場所リストのうち、今回のルートに入っていない場所（薄いピン） */
+const WISHLIST = [
+  { name:'沖縄ワールド', lat:26.1404, lng:127.7476, verified:'approx' },
+  { name:'果報バンタ',   lat:26.3608, lng:127.9922, verified:'osm' },
+  { name:'青の洞窟',     lat:26.4428, lng:127.7735, verified:'osm' },
+];
+
+/* 古宇利島一周（橋の北のたもとから反時計回りに一周して戻る。近似の輪郭） */
+const KOURI_LOOP = [
+  [26.6972,128.0207],[26.6989,128.0270],[26.7038,128.0298],[26.7097,128.0277],
+  [26.7129,128.0211],[26.7118,128.0130],[26.7069,128.0081],[26.7006,128.0092],
+  [26.6978,128.0151],[26.6972,128.0207],
+];
+
+/* 移動手段 */
+const MODES = {
+  plane:{ icon:'✈️', label:'飛行機' },
+  rail: { icon:'🚃', label:'ゆいレール' },
+  bus:  { icon:'🚌', label:'バス' },
+  taxi: { icon:'🚕', label:'タクシー' },
+  ferry:{ icon:'⛴️', label:'フェリー' },
+  bike: { icon:'🚲', label:'自転車' },
+  walk: { icon:'🚶', label:'徒歩' },
+};
+
+/* 区間（時系列カード）。pts には STOPS の id か [緯度, 経度] を並べる。
+   bend: 弧の曲がり具合（飛行機・フェリー）。view:'japan' で日本全体を表示。 */
+const LEGS = [
+  // ---- DAY 1 ----
+  { day:1, date:'11/5', dow:'木', time:'10:00 → 12:40', title:'名古屋（中部）から那覇へフライト',
+    note:'空港近くで沖縄そばのランチ。', view:'japan',
+    segs:[{ mode:'plane', pts:['nagoya','naha_ap'], bend:-0.16 }] },
+  { day:1, date:'11/5', dow:'木', time:'13:20', title:'ゆいレールで県庁前駅へ',
+    note:'コンビニで飲み物と軽食を買ってバスを待つ。', maxZoom:13,
+    segs:[{ mode:'rail', pts:['naha_ap','kencho'] }] },
+  { day:1, date:'11/5', dow:'木', time:'14:30 → 16:10', title:'120番バスで北上、万座毛へ',
+    note:'恩納村役場前で下車。象の鼻の断崖と東シナ海。',
+    segs:[{ mode:'bus', pts:['kencho','manzamo'] }] },
+  { day:1, date:'11/5', dow:'木', time:'17:30 → 18:30', title:'本部町のゲストハウスへ（1泊目）',
+    note:'120→65番を乗り継いで本部港へ。DO PI-CANにチェックイン、夜はオリオンビール。',
+    segs:[{ mode:'bus', pts:['manzamo','nago_bt','dopican'] }] },
+  // ---- DAY 2 ----
+  { day:2, date:'11/6', dow:'金', time:'8:30 → 9:00', title:'朝食・チェックアウトして渡久地港へ',
+    note:'港までの手段は未確定。', maxZoom:13,
+    segs:[{ mode:'walk', pts:['dopican','toguchi'] }] },
+  { day:2, date:'11/6', dow:'金', time:'9:00 → 9:15', title:'フェリーで水納島へ',
+    note:'約15分の船旅。島で泳いで、昼食も島で。', maxZoom:12,
+    segs:[{ mode:'ferry', pts:['toguchi','minna'], bend:0.18 }] },
+  { day:2, date:'11/6', dow:'金', time:'13:30 → 13:45', title:'水納島から渡久地港へ戻る',
+    note:'帰りのフェリーで本島へ。', maxZoom:12,
+    segs:[{ mode:'ferry', pts:['minna','toguchi'], bend:0.18 }] },
+  { day:2, date:'11/6', dow:'金', time:'13:45 → 14:30', title:'タクシーで美らテラスへ',
+    note:'渡久地港から約30〜40分。',
+    segs:[{ mode:'taxi', pts:['toguchi','churaterrace'] }] },
+  { day:2, date:'11/6', dow:'金', time:'14:40 → 16:10', title:'古宇利大橋サイクリング',
+    note:'電動アシストで約14km。橋を渡って島を一周し、また橋で戻る。16:10までに返却。',
+    route:'美らテラス → 古宇利大橋 → 古宇利島一周 → 美らテラス', maxZoom:13.5,
+    segs:[{ mode:'bike', pts:['churaterrace','kouri_bridge',...KOURI_LOOP,'kouri_bridge','churaterrace'] }] },
+  { day:2, date:'11/6', dow:'金', time:'16:15 → 19:35', title:'バスを乗り継いでアメリカンビレッジへ',
+    note:'徒歩約19分で運天原へ。仲宗根・名護BTで乗り継いで桑江へ。夜景を散策して夕食。',
+    warn:'⚠ 運天原16:36発を逃すと、その日の那覇方面の公共交通はなし',
+    route:'美らテラス → 運天原 → 名護BT → アメリカンビレッジ',
+    segs:[{ mode:'walk', pts:['churaterrace','untenbaru'] },
+          { mode:'bus',  pts:['untenbaru','nago_bt','american'] }] },
+  { day:2, date:'11/6', dow:'金', time:'21:00 → 21:50', title:'那覇のゲストハウス海風へ（2泊目）',
+    note:'公共交通で約48分。県庁前駅から徒歩3分の宿。',
+    segs:[{ mode:'bus', pts:['american','kaifu'] }] },
+  // ---- DAY 3 ----
+  { day:3, date:'11/7', dow:'土', time:'9:30 → 10:30', title:'WWW!! 26 フェス1日目へ',
+    note:'ゆいレールでおもろまち駅、シャトルバスで会場へ。11:00開場・13:00開演！',
+    segs:[{ mode:'rail', pts:['kaifu','omoro'] }, { mode:'bus', pts:['omoro','festival'] }] },
+  { day:3, date:'11/7', dow:'土', time:'終演後 → 22:30', title:'終演、那覇へ戻る（3泊目）',
+    note:'帰りのシャトルは19:00〜22:00運行。国際通りで打ち上げも。',
+    segs:[{ mode:'bus', pts:['festival','omoro'] }, { mode:'rail', pts:['omoro','kaifu'] }] },
+  // ---- DAY 4 ----
+  { day:4, date:'11/8', dow:'日', time:'10:00', title:'フェス2日目へ',
+    note:'昨日と同じ道のり。13:00 MONGOL800 フィナーレ開演！',
+    segs:[{ mode:'rail', pts:['kaifu','omoro'] }, { mode:'bus', pts:['omoro','festival'] }] },
+  { day:4, date:'11/8', dow:'日', time:'終演後 → 22:00', title:'那覇へ戻る（4泊目）',
+    note:'シャトルとゆいレールで宿へ。最後の那覇グルメ。',
+    segs:[{ mode:'bus', pts:['festival','omoro'] }, { mode:'rail', pts:['omoro','kaifu'] }] },
+  // ---- DAY 5 ----
+  { day:5, date:'11/9', dow:'月', time:'9:30 → 10:30〜', title:'国際通りでお土産',
+    note:'チェックアウトして荷物を預け、散策・最後のランチ・お土産探し。', maxZoom:14,
+    segs:[{ mode:'walk', pts:['kaifu','kokusai'] }] },
+  { day:5, date:'11/9', dow:'月', time:'15:30', title:'ゆいレールで那覇空港へ',
+    note:'空港まで約15分。', maxZoom:13,
+    segs:[{ mode:'rail', pts:['kokusai','naha_ap'] }] },
+  { day:5, date:'11/9', dow:'月', time:'16:55 → 18:55', title:'名古屋へ帰る',
+    note:'さよなら沖縄、また来るね。', view:'japan',
+    segs:[{ mode:'plane', pts:['naha_ap','nagoya'], bend:-0.12 }] },
+];
+
+/* 日ごとの赤線の色（3日目と4日目は同じ道なので色味を変える） */
+const DAY_COLOR = { 1:'#a8241a', 2:'#b8401c', 3:'#8f1630', 4:'#d0482c', 5:'#9a2a18' };
+const LIVE_COLOR = '#e8402c';
+const JAPAN = [[24.6,125.5],[45.6,146.0]];
+
+/* =====================================================================
+   ここから下は演出のコード
+   ===================================================================== */
+const DOW_LABEL = d => `${d.date}（${d.dow}）`;
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches || /[?&]reduce\b/.test(location.search);
+const $ = s => document.querySelector(s);
+const P = p => typeof p === 'string' ? [STOPS[p].lat, STOPS[p].lng] : p;
+
+/* ---------- 時系列カード（地図が読めなくても表示する） ---------- */
+const timeline = $('#timeline');
+const cards = [];
+let lastDay = 0;
+LEGS.forEach((leg, i) => {
+  if (leg.day !== lastDay) {
+    lastDay = leg.day;
+    const sep = document.createElement('li');
+    sep.className = 'day-sep';
+    sep.innerHTML = `DAY ${leg.day}<small>${DOW_LABEL(leg)}</small>`;
+    timeline.appendChild(sep);
+  }
+  const icons = leg.segs.map(s => MODES[s.mode].icon).join('→');
+  const li = document.createElement('li');
+  li.className = 'card';
+  li.innerHTML = `
+    <div class="card-head"><span>DAY ${leg.day}</span><span>${DOW_LABEL(leg)}</span><span class="time">${leg.time}</span></div>
+    <h3><span class="icons">${icons}</span>${leg.title}</h3>
+    <p class="route">${leg.route || routeText(leg)}</p>
+    <p class="note">${leg.note}</p>
+    ${leg.warn ? `<p class="warn">${leg.warn}</p>` : ''}`;
+  timeline.appendChild(li);
+  cards.push(li);
+});
+if (reduced) $('#motionNote').classList.add('show');
+
+function routeText(leg) {
+  const names = [];
+  leg.segs.forEach(s => s.pts.forEach(p => {
+    if (typeof p !== 'string') return;
+    const n = STOPS[p].name.replace(/（.*?）/, '');
+    if (names[names.length - 1] !== n) names.push(n);
+  }));
+  return names.join(' → ');
+}
+
+function setActive(i) {
+  cards.forEach((c, j) => {
+    c.classList.toggle('active', j === i);
+    c.classList.toggle('done', i < 0 ? false : j < i);
+  });
+  const c = cards[i];
+  if (c) {
+    const panel = $('#panel');
+    panel.scrollTop = c.offsetTop - panel.clientHeight / 2 + c.offsetHeight / 2;
+  }
+}
+function allDone() { cards.forEach(c => { c.classList.remove('active'); c.classList.add('done'); }); }
+
+/* ---------- Leaflet が読めないときのフォールバック ---------- */
+if (!window.L) {
+  $('#fallback').classList.add('show');
+  ['#btnStart', '#btnSkip'].forEach(s => $(s).disabled = true);
+  return;
+}
+
+/* ---------- 地図 ---------- */
+const map = L.map('map', { zoomSnap:0.25, zoomControl:true, worldCopyJump:false, attributionControl:true });
+map.fitBounds(JAPAN);
+/* 地図タイル。1つ目が読めなければ次の候補へ切り替える
+   （OpenStreetMap 公式タイルは file:// などで開くと「Access blocked」になるため使わない） */
+const TILE_PROVIDERS = [
+  /* 国土地理院タイル（APIキー・リファラ不要。file:// でも表示できる） */
+  { url:'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', maxZoom:18, maxNativeZoom:18,
+    attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>' },
+  { url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', maxZoom:18,
+    attribution:'Tiles &copy; Esri' },
+];
+let tileLayer = null;
+function useProvider(n) {
+  if (tileLayer) map.removeLayer(tileLayer);
+  const pv = TILE_PROVIDERS[n];
+  let ok = 0, bad = 0;
+  tileLayer = L.tileLayer(pv.url, { maxZoom:pv.maxZoom, attribution:pv.attribution })
+    .on('tileload', () => { ok++; $('#tileWarn').classList.remove('show'); })
+    .on('tileerror', () => {
+      if (++bad < 4 || ok > 0) return;
+      if (n + 1 < TILE_PROVIDERS.length) useProvider(n + 1);
+      else $('#tileWarn').classList.add('show');
+    })
+    .addTo(map);
+}
+useProvider(0);
+
+function updateZoomClass() {
+  const z = map.getZoom(), el = map.getContainer();
+  el.classList.toggle('zl-low', z < 8.5);
+  el.classList.toggle('zl-mid', z >= 8.5 && z < 11.75);
+}
+map.on('zoomend', updateZoomClass);
+updateZoomClass();
+
+/* 地点マーカー */
+const stopMarkers = {};
+let festMarker = null;
+Object.entries(STOPS).forEach(([id, s]) => {
+  let m;
+  if (s.fest) {
+    m = festMarker = L.marker([s.lat, s.lng], { icon:L.divIcon({ className:'', html:'<div class="fest"><span>🎸</span></div>', iconSize:[40,40], iconAnchor:[20,20] }), zIndexOffset:500 });
+  } else {
+    m = L.marker([s.lat, s.lng], { icon:L.divIcon({ className:'', html:'<div class="stop-dot"></div>', iconSize:[12,12], iconAnchor:[6,6] }), keyboard:false });
+  }
+  const off = { right:[10,0], left:[-10,0], top:[0,-8], bottom:[0,8] }[s.dir] || [10,0];
+  m.bindTooltip(s.name, { permanent:true, direction:s.dir, offset:off, className:`stop-label lvl-${s.lvl}` });
+  m.addTo(map);
+  stopMarkers[id] = m;
+});
+WISHLIST.forEach(w => {
+  L.marker([w.lat, w.lng], { icon:L.divIcon({ className:'', html:'<div class="wish">✧</div>', iconSize:[16,16], iconAnchor:[8,8] }) })
+    .bindTooltip(`行きたい場所：${w.name}`, { className:'wish-label', direction:'top' })
+    .addTo(map);
+});
+
+function stopEl(id) { const e = stopMarkers[id].getElement(); return e && e.querySelector('.stop-dot'); }
+function markVisited(leg) {
+  leg.segs.forEach(s => s.pts.forEach(p => {
+    if (typeof p !== 'string') return;
+    const el = stopEl(p);
+    if (el) { el.classList.add('visited'); el.classList.remove('ping'); void el.offsetWidth; if (!reduced) el.classList.add('ping'); }
+  }));
+}
+function resetStops() { Object.keys(stopMarkers).forEach(id => { const el = stopEl(id); if (el) el.classList.remove('visited', 'ping'); }); }
+function setFestActive(on) { const e = festMarker && festMarker.getElement(); if (e) e.querySelector('.fest').classList.toggle('active', on); }
+
+/* ---------- 経路の形 ---------- */
+function hav(a, b) {
+  const R = 6371, r = Math.PI / 180;
+  const dLat = (b[0] - a[0]) * r, dLng = (b[1] - a[1]) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+/* 2点間の二次ベジェ弧。bend>0 で進行方向の左側へふくらむ */
+function arc(a, b, bend, n = 100) {
+  const k = Math.cos((a[0] + b[0]) / 2 * Math.PI / 180);
+  const dx = (b[1] - a[1]) * k, dy = b[0] - a[0];
+  const c = [(a[0] + b[0]) / 2 + dx * bend, (a[1] + b[1]) / 2 - dy * bend / k];
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, u = 1 - t;
+    out.push([u*u*a[0] + 2*u*t*c[0] + t*t*b[0], u*u*a[1] + 2*u*t*c[1] + t*t*b[1]]);
+  }
+  return out;
+}
+function buildPath(seg) {
+  let pts = seg.pts.map(P);
+  if (seg.bend) pts = arc(pts[0], pts[pts.length - 1], seg.bend, seg.mode === 'plane' ? 120 : 40);
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + hav(pts[i - 1], pts[i]));
+  return { pts, cum, len:cum[cum.length - 1] };
+}
+function pointAt(path, f) {
+  const d = Math.max(0, Math.min(1, f)) * path.len, c = path.cum;
+  let lo = 0, hi = c.length - 1;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (c[mid] <= d) lo = mid; else hi = mid; }
+  const span = c[hi] - c[lo] || 1, t = (d - c[lo]) / span, a = path.pts[lo], b = path.pts[hi];
+  return { i:lo, p:[a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t] };
+}
+function subPath(path, f) { const { i, p } = pointAt(path, f); return path.pts.slice(0, i + 1).concat([p]); }
+LEGS.forEach(leg => leg.segs.forEach(s => { s.path = buildPath(s); }));
+const TOTAL_KM = LEGS.reduce((sum, l) => sum + l.segs.reduce((a, s) => a + s.path.len, 0), 0);
+
+function segDuration(seg) {
+  if (seg.mode === 'plane') return 7000;
+  if (seg.mode === 'bike') return 6500;
+  return Math.max(1300, Math.min(5500, 700 * Math.sqrt(seg.path.len) + 700));
+}
+const ease = f => f < .5 ? 2 * f * f : 1 - (-2 * f + 2) ** 2 / 2;
+const easeSine = f => -(Math.cos(Math.PI * f) - 1) / 2;
+
+/* ---------- 乗り物アイコン ---------- */
+const PLANE_SVG = '<svg viewBox="0 0 64 64"><path d="M32 3c2.6 0 4.2 3.2 4.2 6.4V24l21 12.5v5.2L36.2 35v12.4l6.4 5.2V57L32 54l-10.6 3v-4.4l6.4-5.2V35L6.8 41.7v-5.2L27.8 24V9.4C27.8 6.2 29.4 3 32 3z" fill="#f3e3bd" stroke="#3b2412" stroke-width="2.2" stroke-linejoin="round"/></svg>';
+let vehicle = null, vehicleMode = null;
+function setVehicle(mode, at) {
+  if (!vehicle) vehicle = L.marker(at, { interactive:false, keyboard:false, zIndexOffset:1000 }).addTo(map);
+  if (mode !== vehicleMode) {
+    vehicleMode = mode;
+    const html = `<div class="veh"><div class="veh-inner">${mode === 'plane' ? PLANE_SVG : MODES[mode].icon}</div></div>`;
+    vehicle.setIcon(L.divIcon({ className:'vehicle', html, iconSize:[44,44], iconAnchor:[22,22] }));
+  }
+  vehicle.setLatLng(at);
+}
+/* Leaflet はマーカー位置を整数ピクセルに丸めるので、小数のまま置き直してなめらかに動かす */
+function moveVehicle(p) {
+  vehicle.setLatLng(p);
+  const el = vehicle.getElement();
+  if (el) L.DomUtil.setPosition(el, map.project(p).subtract(map.getPixelOrigin()));
+}
+/* 飛行機の向きは出発地→到着地で固定（区間の最初に1回だけ計算） */
+function planeAngle(path) {
+  const a = map.latLngToLayerPoint(path.pts[0]), b = map.latLngToLayerPoint(path.pts[path.pts.length - 1]);
+  return Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI + 90;
+}
+function orientPlane(ang, f) {
+  const el = vehicle.getElement(); if (!el) return;
+  const scale = 1 + 0.35 * Math.sin(Math.PI * f);
+  el.querySelector('.veh-inner').style.transform = `rotate(${ang}deg) scale(${scale})`;
+}
+function removeVehicle() { if (vehicle) { map.removeLayer(vehicle); vehicle = null; vehicleMode = null; } }
+
+/* ---------- 再生エンジン（一時停止・速度・中断に対応） ---------- */
+const engine = { token:0, running:false, paused:false, speed:1, leg:-1, finished:false };
+class Abort extends Error {}
+const check = tok => { if (tok !== engine.token) throw new Abort(); };
+const frame = () => new Promise(r => requestAnimationFrame(r));
+async function tween(ms, fn, tok) {
+  let t = 0, last = performance.now();
+  while (t < ms) {
+    const now = await frame(); check(tok);
+    const dt = Math.min(100, now - last); last = now;
+    if (!engine.paused) t += dt * engine.speed;
+    fn(Math.min(1, t / ms));
+  }
+}
+const wait = (ms, tok) => tween(ms, () => {}, tok);
+
+const routeLayer = L.layerGroup().addTo(map);
+function drawDone(seg, day) {
+  L.polyline(seg.path.pts, { color:'#1c0c04', weight:7, opacity:.45, lineCap:'round', interactive:false }).addTo(routeLayer);
+  L.polyline(seg.path.pts, { color:DAY_COLOR[day], weight:4.5, opacity:.95, lineCap:'round', interactive:false }).addTo(routeLayer);
+}
+function legBounds(leg) {
+  if (leg.view === 'japan') return L.latLngBounds(JAPAN);
+  return L.latLngBounds(leg.segs.flatMap(s => s.path.pts)).pad(0.3);
+}
+function fitOpts(leg) {
+  const small = map.getSize().x < 500;
+  return { paddingTopLeft:[24, 24], paddingBottomRight:[small ? 24 : 60, small ? 70 : 100], maxZoom:leg.maxZoom || 12 };
+}
+async function camera(leg, tok) {
+  const b = legBounds(leg), opt = fitOpts(leg);
+  if (reduced) { map.fitBounds(b, { ...opt, animate:false }); return; }
+  const dur = 1.6 / engine.speed;
+  await new Promise(res => {
+    let done = false; const fin = () => { if (!done) { done = true; res(); } };
+    map.once('moveend', fin);
+    map.flyToBounds(b, { ...opt, duration:dur });
+    setTimeout(fin, dur * 1000 + 900);
+  });
+  check(tok);
+}
+async function runSeg(seg, leg, tok) {
+  const path = seg.path;
+  setVehicle(seg.mode, path.pts[0]);
+  if (!reduced) {
+    const live = L.polyline([path.pts[0]], { color:LIVE_COLOR, weight:4, dashArray:'10 9', lineCap:'round', className:'live-line', interactive:false }).addTo(routeLayer);
+    const ez = seg.mode === 'plane' ? easeSine : ease;
+    const ang = seg.mode === 'plane' ? planeAngle(path) : 0;
+    await tween(segDuration(seg), f => {
+      const e = ez(f);
+      live.setLatLngs(subPath(path, e));
+      moveVehicle(pointAt(path, e).p);
+      if (seg.mode === 'plane') orientPlane(ang, e);
+    }, tok);
+    routeLayer.removeLayer(live);
+  }
+  drawDone(seg, leg.day);
+  vehicle.setLatLng(path.pts[path.pts.length - 1]);
+}
+
+function showCaption(leg) {
+  const c = $('#caption');
+  c.querySelector('.cap-day').textContent = `DAY ${leg.day} ・ ${DOW_LABEL(leg)} ・ ${leg.time}`;
+  c.querySelector('.cap-title').textContent = `${leg.segs.map(s => MODES[s.mode].icon).join(' ')}  ${leg.title}`;
+  c.classList.remove('show'); void c.offsetWidth; c.classList.add('show');
+}
+const hideCaption = () => $('#caption').classList.remove('show');
+const touchesFest = leg => leg.segs.some(s => s.pts.includes('festival'));
+
+async function play() {
+  const tok = ++engine.token;
+  engine.running = true; engine.paused = false; engine.finished = false;
+  updateUI();
+  try {
+    for (let i = 0; i < LEGS.length; i++) {
+      const leg = LEGS[i];
+      engine.leg = i;
+      setActive(i); showCaption(leg); setFestActive(touchesFest(leg));
+      await camera(leg, tok);
+      for (const seg of leg.segs) await runSeg(seg, leg, tok);
+      markVisited(leg);
+      await wait(reduced ? 1600 : 800, tok);
+    }
+    finish();
+  } catch (e) { if (!(e instanceof Abort)) throw e; }
+}
+function finish() {
+  engine.running = false; engine.paused = false; engine.finished = true; engine.leg = LEGS.length;
+  allDone(); hideCaption(); setFestActive(false);
+  $('#endStats').textContent = `5日間・${LEGS.length}区間・約 ${Math.round(TOTAL_KM).toLocaleString()} km の冒険`;
+  $('#endcard').classList.add('show');
+  updateUI();
+}
+function reset() {
+  engine.token++; engine.running = false; engine.paused = false; engine.finished = false; engine.leg = -1;
+  map.stop(); routeLayer.clearLayers(); removeVehicle(); resetStops(); setFestActive(false);
+  setActive(-1); $('#panel').scrollTop = 0; hideCaption();
+  $('#endcard').classList.remove('show');
+  map.fitBounds(JAPAN, { animate:false });
+  updateUI();
+}
+function skip() {
+  reset();
+  engine.token++;
+  LEGS.forEach(leg => { leg.segs.forEach(s => drawDone(s, leg.day)); markVisited(leg); });
+  setVehicle('plane', P('nagoya'));
+  map.fitBounds(JAPAN, { animate:false });
+  finish();
+}
+
+/* ---------- ボタン ---------- */
+const btnStart = $('#btnStart');
+function updateUI() {
+  if (engine.running) btnStart.textContent = engine.paused ? '▶ 再開' : '❚❚ 一時停止';
+  else btnStart.innerHTML = engine.finished ? '↻ <span class="jp">もう一度（</span>START<span class="jp">）</span>'
+                                            : '▶ <span class="jp">旅を開始（</span>START<span class="jp">）</span>';
+  btnStart.setAttribute('aria-pressed', String(engine.running && !engine.paused));
+}
+btnStart.addEventListener('click', () => {
+  if (engine.running) { engine.paused = !engine.paused; updateUI(); return; }
+  if (engine.finished) reset();
+  play();
+});
+$('#btnReset').addEventListener('click', reset);
+$('#btnSkip').addEventListener('click', skip);
+$('#btnAgain').addEventListener('click', () => { reset(); play(); });
+$('#btnClose').addEventListener('click', () => $('#endcard').classList.remove('show'));
+document.querySelectorAll('.speed button').forEach(b => b.addEventListener('click', () => {
+  engine.speed = Number(b.dataset.speed);
+  document.querySelectorAll('.speed button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+}));
+window.addEventListener('resize', () => map.invalidateSize());
+
+/* 動作確認用（ブラウザのコンソールから状態を見られる） */
+window.trip = { engine, LEGS, STOPS, reset, skip };
+})();
+</script>
+</body>
+</html>
